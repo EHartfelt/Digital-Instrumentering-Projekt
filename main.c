@@ -1,6 +1,5 @@
 #include <main.h>
 #include "lcd16216.c"
-
 //Global variables
 unsigned long time_ms; //Time from start in seconds
 
@@ -10,21 +9,6 @@ void timer2_isr() // this routine starts when the 16-bit counter timer1 overruns
 time_ms += 1;
 }
 
-//Write one byte from EEPROM
-void write_float_eeprom(int16 address, float data)
-{
-   int8 i;
-   for( i =0; i < 4; i++) write_eeprom(address + i, *((int8 *)(&data)+i) );
-}
-
-//Read a byte from the EEPROM
-float read_float_eeprom(int16 address)
-{
-   int8 i;
-   float data;
-   for(i = 0; i < 4; ++i) *((int8 *)(&data) + i) = read_eeprom(address + i);
-return data;
-}
 
 //Initialize I2C, Interrupts, Timers, etc.
 void initialize(){
@@ -37,15 +21,7 @@ void initialize(){
    strcpy(text, "Welcome!");
    lcd_print(text);
    ////TIMER////
-   setup_timer_2(T2_DIV_BY_4,249,2);      //500 us overflow, 1,0 ms interrupt
-   ////I2C////
-   
-   
-   
-   
-   ////EEPROM////
-   
-   
+   setup_timer_2(T2_DIV_BY_4,249,2);      //500 us overflow, 1,0 ms interrupt 
 
 }
 
@@ -57,7 +33,7 @@ void error_message(){
    char text[17];
    strcpy(text, "Not a checkpoint");
    //Light up red LED
-   output_high(PIN_A2);
+   //output_high(PIN_A2);
    
 }  //Use delay afterwards
 
@@ -78,7 +54,6 @@ void getInitials(char *initials){
    
    char letter = 65;    //Letter in ASCII, A = 65, Z = 90.
    char i = 1;          //Current letter
-   
    
    while(true){
       while( (!input(B1)) && (!input(B2)) && (!input(B3)) );  //Wait for button to be pushed
@@ -125,18 +100,17 @@ void getInitials(char *initials){
          }else{
             letter = 65; //Go back to 'A'
             lcd_gotoxy(i-1, 2);
-            strcpy(text, "__");
+            strcpy(text, "A_");
             lcd_print(text);
             i--;
             *initials--;
             lcd_gotoxy(i, 2);
          }
       }
-      delay_ms(100);                //Debounce
-        //Wait for button to be released
+      delay_ms(100);  //Works as debounce
+      
    }    //End of while       
 }
-
 
 
 void main()
@@ -145,7 +119,6 @@ void main()
    initialize(); 
    char text[17];
 
-   while(TRUE)
    {  
        getInitials(&initials);
        lcd_clear();
