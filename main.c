@@ -157,14 +157,4 @@ void main()
 
 }
 
-/*
-void myFunc(char *pointer) {
-*pointer = 'l'
- pointer++;
-}
 
-char initials[3];
-
-myFunc(&array);
-
-*/
