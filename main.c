@@ -20,10 +20,39 @@ void initialize(){
    char text[17];
    strcpy(text, "Welcome!");
    lcd_print(text);
+   
+   ////INTERRUPTS////
+   enable_interrupts(int_ext); //Interrupts must be enabled to work
+   ext_int_edge(L_TO_H);       //Rising edge
+   //Need to enable global interrupts in order to work
+   
    ////TIMER////
    setup_timer_2(T2_DIV_BY_4,249,2);      //500 us overflow, 1,0 ms interrupt 
 
 }
+
+/*
+//Put MCU to sleep mode to save energy
+//Wake up by pushing one of the three buttons
+//Not at all finished
+void sleepMode(){
+   //Write on LCD
+   lcd_clear();
+   lcd_gotoxy(1, 1);
+   char text[17]; 
+   strcpy(text, "Push any button");
+   lcd_print();
+   lcd_gotoxy(1, 2);
+   strcpy(text, "and scan RFID-tag");
+   lcd_print();
+   
+   //Go to sleep mode
+   //Find ud af hvilke pins der skal bruges, samt om der er andre interrupts
+   //der skal bruges
+
+
+}
+*/
 
 //Print error message on LCD and make red LED light up
 void error_message(){
@@ -114,18 +143,65 @@ void getInitials(char *initials){
 
 
 void main()
-{
+{  
+   initialize();
+   //Array for getting initials
    char initials[3];
-   initialize(); 
-   char text[17];
+   unsigned long score;
+   unsigned int8 coords[4];
+   unsigned int8 RFID[5];
+   
+  
+   
+   
 
-   {  
-       getInitials(&initials);
-       lcd_clear();
+   while(TRUE){  
        
-       sprintf(text, "%c %c %c", initials[0], initials[1], initials[2]); //Print it
-       lcd_print(text);
-       delay_ms(5000);
+       //Go to sleep mode and wait for RFID interrupt
+       //sleepMode();
+       //"Print waiting for RFID" or something on LCD
+       
+       //Load RFID card
+       //RFID = loadRFID();
+       
+       //Check if new user
+       /*
+       if( isNewUser(RFID[5]) ){
+         getInitials(&initials); //Function returns initials by changing the array
+         writePerson();
+       }
+       */
+       
+       //Start the race by loading the coordinates and restarting the timer
+       //startRace();
+       
+       //while(TRUE){
+       
+       
+       //Go to Sleep Mode again and wait for RFID
+       //"Check in at next CP!" or something on LCD
+       //sleepMode();
+       
+       //RFID is scanned
+       //scanRFID();
+       
+       //coords = getCoords();
+       /*
+       if( coords == coords in EEPROM){
+            if(last checkpoint){
+               score = writeScore();
+               highScoreMessage(score); //Tells whether or not it was a new HS
+               break;
+            }
+       }else{
+         errorMessage();
+       }
+       
+       
+       }
+       */
+       
+       
    }
 
 }
