@@ -14,64 +14,61 @@ significant byte is the first, down to the least significant. The first user's
 first initial is at address 82 and the first RFID is at address 85.
 
 For a user the data in the EEPROM looks like this:
-First address = 82 as an example
-82-84. Initials
-85-89. RFID
-90-93. Highscore split into 4 bytes B3 B2 B1 B0 with B3 at 90, B2 at 91, 
-B1 at 92 and B0 at 93.
+First address = 172 as an example
+172-174. Initials
+175-179. RFID
+180-183. Highscore split into 4 bytes B3 B2 B1 B0 with B3 at 180, B2 at 181, 
+B1 at 182 and B0 at 183.
 
-The next user starts at 82+12 = 94 and so on.
-
+The next user starts at 172+12*n = 184 and so on. n={0, 1, 2,..., k}
 */
 
 
 //Returns 1 if New User and 0 if the user already exists.
 int8 isNewUser(int8 RFID_Tag[5]){
    
-   int8 start_add = 85;               //Starting address, first RFID
-   unsigned int address = start_add;  //Current address
-   unsigned int8 data;        //Data byte with EEPROM readings
-   char exists;               //Flag for checking if user already exists in EEPROM
+   int8 start_add = 175;               //Starting address, first RFID
+   int8 nPeople = read_eeprom(0x0001); //Get the number of people in EEPROM
+   unsigned int16 address;               //Current address
+   unsigned int8 data;                 //Data byte with EEPROM readings
+   char exists;                        //Flag for checking if user already exists in EEPROM
    
-   while(TRUE){
+   for(int j = 0; i<nPeople; j++){
+   
+      adress = start_add + 12*j;
       exists = 1; //Assume that the person exists in EEPROM
-      
-      //Check if there's anyone at the address
-      data = read_eeprom(address);
-      if(data == 0xFF){
-         return 1; //If empty => new user, return True
-      }
-     
+    
       //Look through RFID
-      if(exists == 1){
-         for(int i=0; i<=4; i++){
-            //Avoid loading the first byte twice
-            if(i != 0){
-               data = read_eeprom(address);
-            }
-            //Check if RFID matches
-            if(RFID_Tag[i] == data){
-               address++; //Go to next RFID byte
-            }else{
-               exists = 0;
-            } //End of nested if/else 
-         } //End of for-loop
-      } //End of if
-      
+      for(int i=0; i<=4; i++){
+         data = read_eeprom(address);
+         //Check if RFID matches
+         if(RFID_Tag[i] == data){
+             address++; //Go to next RFID byte
+         }else{
+            exists = 0;
+            break;
+         } //End of nested if/else 
+      } //End of for-loop
       
       //If initials and RFID matched
       if(exists == 1){
          return 0; //Already existing user
       }
       
-      //RFID didn't match, go to next person
-      if(exists == 0){
-         int current_pers = (address - start_add)/12;     //Integer with current person, starting at 0
-         address = start_add + (current_pers + 1)*12;     //Go to the address with next person
-      }
-   } //End of while
+   } //End of for-loop
+   
+   return 1; //New user
+   
 } //End of function
 
+/*
+1. Split into 4 bytes
+2. Get nPeople
+3. Check people until person is found
+4. When found, see if new HS is higher than the old one
+5. If higher, write new one in EEPROM and return 0
+6. If lower, get old HS from EEPROM and return it
+*/
 
 //This function checks if the new score is a highscore and writes it into the EEPROM
 //if that is the case. It returns 0 if the new score is a HS and returns the old highscore if not.
@@ -79,68 +76,61 @@ unsigned long writeScore(unsigned long score, RFID_Tag[5]){
    
    //Split the score into 4 bytes: B3 B2 B1 B0
    unsigned char bytes[4];
-   bytes[0] = score & 0xFF;       //Least significant byte
-   bytes[1] = (score>>8) & 0xFF;
+   bytes[0] = score & 0xFF;       //Least significant byte 11110000 00001111 11101101 10101100  
+   bytes[1] = (score>>8) & 0xFF;                                                  
    bytes[2] = (score>>16) & 0xFF;
    bytes[3] = (score>>24) & 0xFF; //Most significant byte
    
-   unsigned int address = 85;     //First address with RFID tag
-   unsigned int8 data;   //Data byte from EEPROM
-   char next_Per = 0;    //Flag if the code should go to next person
-   char isHighScore = 0; //Flag for whether the score is a HS
-   unsigned long oldScore; //Variable for the old highscore
+   unsigned int8 start_add = 175; //First address with RFID tag
+   unsigned int16 address;        //Current address
+   unsigned int8 data;            //Data byte from EEPROM
    
-   while(TRUE){
+   char next_Per;                      //Flag if the code should go to next person
+   unsigned long oldScore = 0;         //Variable for the old highscore
+   int8 nPeople = read_eeprom(0x0001); //Get the number of people in EEPROM
+   
+   for(int j = 0; j<nPeople ; j++){
       
-      next_Per = 0; //Assume the right person
+      address = start_add + j*12; //Go to the first RFID for the corresponding user
+      next_Per = 0;               //Assume the right person
       
-      //Run through a persons RFID - tag and see if its the one with the score
+      //Run through a persons RFID tag and see if it's the one with the score
       for(int i=0; i<=4; i++){
          data = read_eeprom(address);
          if(RFID_Tag[i] == data){
             address++; //Next address
          }else{
-            next_Per = 1;
+            next_Per = 1; //Wrong person
             break;
          }
       }
       
-      //We found the guy/girl and are at the first address of the score, eg. 90
-      if(next_Per == 0){
-         //Check if new score is highscore by reading MSByte
-         data = read_eeprom(address);
-         if(bytes[3] < data){ //Smaller number => Faster race
-            isHighScore = 1;
-         }else{
-            isHighScore = 0;
-            //Not new HS, load the old
-            bytes[3] = data;
-            for(int i = 2; i>=0; i--){
-               address++;
-               data = read_eeprom(address);
-               bytes[i] = data;
-            }
-            //Return old highscore
-            oldScore = (bytes[3]<<24) + (bytes[2]<<16) + (bytes[1]<<8) + bytes[0]; 
-            return oldScore; 
-         }
-      }        
+      //Not the right person, check again
+      if(next_Per == 1){
+         continue;
+      }
       
-      //Insert the new HS in EEPROM and return
-      if(isHighScore == 1){
+      //We found the guy/girl and are at the first address of the score, eg. 175
+      //Get the old score from EEPROM in a long
+      for(i = 0; i<4; i++){
+         data = read_eeprom(address+i);
+         oldScore = oldScore + (data << (24-i*8));
+      }
+      
+      if(score >= oldScore){ //Smaller number => Faster race
+         return oldScore; 
+         
+      }else{   
+         
+         //Insert the new HS in EEPROM and return
          for(i = 3; i>=0; i--){
             data = bytes[i];
             write_eeprom(address, data);
             address++;
          }
-         return 0; //To indicate new hs
-      } 
-      
-      //Go to next person if necessary
-      if(next_Per == 1){
-         address = address + 12; //Go to next persons RFID
       }
-   } //End of while
-} //End of function
-
-
+      
+      return 0; //To indicate new HS
+      
+   }//End of for-loop
+}//End of function
