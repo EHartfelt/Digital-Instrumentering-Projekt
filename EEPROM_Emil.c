@@ -24,7 +24,7 @@ The next user starts at 172+12*n = 184 and so on. n={0, 1, 2,..., k}
 */
 
 
-//Returns 1 if New User and 0 if the user already exists.
+//Returns -1 if new and the position in EEPROM if not.
 int8 isNewUser(int8 RFID_Tag[5]){
    
    int8 start_add = 175;               //Starting address, first RFID
@@ -33,9 +33,9 @@ int8 isNewUser(int8 RFID_Tag[5]){
    unsigned int8 data;                 //Data byte with EEPROM readings
    char exists;                        //Flag for checking if user already exists in EEPROM
    
-   for(int j = 0; i<nPeople; j++){
+   for(int j = 0; j<nPeople; j++){
    
-      adress = start_add + 12*j;
+      address = start_add + 12*j;
       exists = 1; //Assume that the person exists in EEPROM
     
       //Look through RFID
@@ -52,27 +52,18 @@ int8 isNewUser(int8 RFID_Tag[5]){
       
       //If initials and RFID matched
       if(exists == 1){
-         return 0; //Already existing user
+         return j; //Already existing user, return address in 
       }
-      
    } //End of for-loop
    
-   return 1; //New user
-   
+   return -1; //New user
 } //End of function
 
-/*
-1. Split into 4 bytes
-2. Get nPeople
-3. Check people until person is found
-4. When found, see if new HS is higher than the old one
-5. If higher, write new one in EEPROM and return 0
-6. If lower, get old HS from EEPROM and return it
-*/
+
 
 //This function checks if the new score is a highscore and writes it into the EEPROM
 //if that is the case. It returns 0 if the new score is a HS and returns the old highscore if not.
-unsigned long writeScore(unsigned long score, RFID_Tag[5]){
+unsigned long writeScore(unsigned long score, RFID_Tag[5], int8 position){
    
    //Split the score into 4 bytes: B3 B2 B1 B0
    unsigned char bytes[4];
@@ -81,56 +72,30 @@ unsigned long writeScore(unsigned long score, RFID_Tag[5]){
    bytes[2] = (score>>16) & 0xFF;
    bytes[3] = (score>>24) & 0xFF; //Most significant byte
    
-   unsigned int8 start_add = 175; //First address with RFID tag
+   unsigned int8 start_add = 180; //First address with Highscore
    unsigned int16 address;        //Current address
    unsigned int8 data;            //Data byte from EEPROM
    
-   char next_Per;                      //Flag if the code should go to next person
    unsigned long oldScore = 0;         //Variable for the old highscore
-   int8 nPeople = read_eeprom(0x0001); //Get the number of people in EEPROM
    
-   for(int j = 0; j<nPeople ; j++){
+   address = start_add + position*12; //Go to the first Highscore byte for the corresponding user
       
-      address = start_add + j*12; //Go to the first RFID for the corresponding user
-      next_Per = 0;               //Assume the right person
-      
-      //Run through a persons RFID tag and see if it's the one with the score
-      for(int i=0; i<=4; i++){
-         data = read_eeprom(address);
-         if(RFID_Tag[i] == data){
-            address++; //Next address
-         }else{
-            next_Per = 1; //Wrong person
-            break;
-         }
+   //Get the old score from EEPROM in a long
+   for(int i = 0; i<4; i++){
+      data = read_eeprom(address+i);
+      oldScore = oldScore + (data << (24-i*8));
+   }
+   
+   //Which score is best?
+   if(score >= oldScore){ //Smaller number => Faster race
+      return oldScore; 
+   }else{   
+      //Insert the new HS in EEPROM and return
+      for(i = 3; i>=0; i--){
+         data = bytes[i];
+         write_eeprom(address, data);
+         address++;
       }
-      
-      //Not the right person, check again
-      if(next_Per == 1){
-         continue;
-      }
-      
-      //We found the guy/girl and are at the first address of the score, eg. 175
-      //Get the old score from EEPROM in a long
-      for(i = 0; i<4; i++){
-         data = read_eeprom(address+i);
-         oldScore = oldScore + (data << (24-i*8));
-      }
-      
-      if(score >= oldScore){ //Smaller number => Faster race
-         return oldScore; 
-         
-      }else{   
-         
-         //Insert the new HS in EEPROM and return
-         for(i = 3; i>=0; i--){
-            data = bytes[i];
-            write_eeprom(address, data);
-            address++;
-         }
-      }
-      
-      return 0; //To indicate new HS
-      
-   }//End of for-loop
+   }
+   return 0; //To indicate new HS
 }//End of function

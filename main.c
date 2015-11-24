@@ -1,14 +1,8 @@
 #include <main.h>
 #include "lcd16216.c"
-//Global variables
-unsigned long time_ms; //Time from start in seconds
 
-#int_timer2
-void timer2_isr() // this routine starts when the 16-bit counter timer1 overruns, after 2^16 micro secs
-{
-time_ms += 1;
-}
-
+#int_ext
+void doNothing(){}
 
 //Initialize I2C, Interrupts, Timers, etc.
 void initialize(){
@@ -22,37 +16,38 @@ void initialize(){
    lcd_print(text);
    
    ////INTERRUPTS////
-   enable_interrupts(int_ext); //Interrupts must be enabled to work
-   ext_int_edge(L_TO_H);       //Rising edge
-   //Need to enable global interrupts in order to work
-   
-   ////TIMER////
-   setup_timer_2(T2_DIV_BY_4,249,2);      //500 us overflow, 1,0 ms interrupt 
+   enable_interrupts(int_ext);
 
 }
 
-/*
+
+
 //Put MCU to sleep mode to save energy
-//Wake up by pushing one of the three buttons
-//Not at all finished
+//Wake up by pushing button 1
 void sleepMode(){
    //Write on LCD
    lcd_clear();
    lcd_gotoxy(1, 1);
    char text[17]; 
-   strcpy(text, "Push any button");
-   lcd_print();
+   strcpy(text, "Push button 1");
+   lcd_print(text);
    lcd_gotoxy(1, 2);
-   strcpy(text, "and scan RFID-tag");
-   lcd_print();
+   strcpy(text, "...and scan tag.");
+   lcd_print(text);
    
-   //Go to sleep mode
-   //Find ud af hvilke pins der skal bruges, samt om der er andre interrupts
-   //der skal bruges
-
-
+   //Enable interrupts
+   enable_interrupts(global); // turns on all enabled interrupts
+   port_b_pullups(TRUE);
+   //Enable interrupt bit
+   delay_ms(100);
+   
+   SLEEP(); //Go to sleep mode
+   //Woken up by interrupt
+   delay_ms(100);
+   port_b_pullups(FALSE);      //Disable pullups
+   disable_interrupts(global); //Disable interrupts
+   
 }
-*/
 
 //Print error message on LCD and make red LED light up
 void error_message(){
@@ -145,38 +140,46 @@ void getInitials(char *initials){
 void main()
 {  
    initialize();
-   //Array for getting initials
-   char initials[3];
-   unsigned long score;
-   unsigned int8 coords[4];
-   unsigned int8 RFID[5];
    
-  
-   
+   char initials[3];          //Array of initials
+   unsigned long score;       //Array of persons score from time_ms
+   unsigned int8 coords[17];  //Array of current coords
+   unsigned int8 RFID[5];     //Array of RFID bytes
+   int8 nPerson;              //The person running the race's number (starting from 0)
+   int8 choice;               //Chooses what to do at program start 
+   char buffer[17];           //LCD buffer
    
 
    while(TRUE){  
        
-       //Go to sleep mode and wait for RFID interrupt
-       //sleepMode();
-       //"Print waiting for RFID" or something on LCD
-       
-       //Load RFID card
-       //RFID = loadRFID();
-       
-       //Check if new user
        /*
-       if( isNewUser(RFID[5]) ){
-         getInitials(&initials); //Function returns initials by changing the array
-         writePerson();
+       char buffer[17];
+       strcpy(buffer, "Please scan RFID");
+       lcd_print(buffer);
+       
+       
+       
+       while(TRUE){ //Loop for reading RFID
+       //Load RFID card
+       RFID = loadRFID(); //Mangler funktion
        }
        */
+       /*
+       //Check if user is new user
+       nPerson = isNewUser(RFID);
+       
+       if( nPerson == -1 ){
+         getInitials(&initials); //Function returns initials by changing the array
+         nPerson = writePerson(initials, RFID); //Get the person's number (0, 1, 2...)
+       }
+       */
+       
        
        //Start the race by loading the coordinates and restarting the timer
        //startRace();
        
-       //while(TRUE){
        
+       //while(TRUE){       
        
        //Go to Sleep Mode again and wait for RFID
        //"Check in at next CP!" or something on LCD
