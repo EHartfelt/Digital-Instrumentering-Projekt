@@ -1,6 +1,8 @@
 #include <main.h>
 #include "lcd16216.c"
+#include "User_Inputs.c" //Contains: getInitials(), ...
 
+//Button interrupt wakes up MCU from sleep mode
 #int_ext
 void doNothing(){}
 
@@ -17,14 +19,17 @@ void initialize(){
    
    ////INTERRUPTS////
    enable_interrupts(int_ext);
+   //H_TO_L?
 
+   ////RFID////
+   RFID_setup();
 }
 
 
 
 //Put MCU to sleep mode to save energy
 //Wake up by pushing button 1
-void sleepMode(){
+void sleepWaitTag(){
    //Write on LCD
    lcd_clear();
    lcd_gotoxy(1, 1);
@@ -36,7 +41,7 @@ void sleepMode(){
    lcd_print(text);
    
    //Enable interrupts
-   enable_interrupts(global); // turns on all enabled interrupts
+   enable_interrupts(global); // Turns on all enabled interrupts
    port_b_pullups(TRUE);
    //Enable interrupt bit
    delay_ms(100);
@@ -55,85 +60,50 @@ void error_message(){
    lcd_clear();      
    lcd_gotoxy(1, 1);
    char text[17];
-   strcpy(text, "Not a checkpoint");
+   strcpy(text, "Not a checkpoint, buddy");
    //Light up red LED
    //output_high(PIN_A2);
    
 }  //Use delay afterwards
 
-//Gets initials from pushbuttons and return array
-void getInitials(char *initials){
-   //Write on LCD
-   lcd_clear();      
-   lcd_gotoxy(1, 1);
-   //Array for writing on LCD
-   char text[17];
-   strcpy(text, "Write initials:");
-   lcd_print(text);
-   //Write to screen
-   lcd_gotoxy(1, 2);
-   strcpy(text, "A__");
-   lcd_print(text);
-   lcd_gotoxy(1, 2);
+//Get RFID by measuring 3 times to check for errors
+int8* getRFID(){
+   int16 checkSum1;
+   int16 checkSum2;
+   int16 checkSum3;
+   int1 sumsGood = 0;
+   int8 RFID[5];
    
-   char letter = 65;    //Letter in ASCII, A = 65, Z = 90.
-   char i = 1;          //Current letter
-   
-   while(true){
-      while( (!input(B1)) && (!input(B2)) && (!input(B3)) );  //Wait for button to be pushed
-   
-      //Button 1 pressed (Change letter)
-      if(input(B1)){
-         while( input(B1) ); //Wait for button to be released
-         if(letter != 90){
-            letter++;
-         }else{
-            letter = 65;   //Go back to A
-         }
-         sprintf(text, "%c", letter);  //Print letter on LCD
-         lcd_print(text);
-         lcd_gotoxy(i, 2);             //Go back for next print
-      }
-      
-      //Button 2 pressed (Submit)
-      if(input(B2)){
-         while( input(B2) );          //Wait for button to be released
-         
-         *initials = letter;          //Submit letter to array
-         *initials++;                 //Go to next index in array
-         sprintf(text, "%c", letter); //Print letter
-         lcd_print(text);
-         //If not the last letter
-         if(i!=3){
-            letter = 65;                 //Go back to A
-            i++;                         //Next letter           
-            lcd_gotoxy(i, 2);   
-            sprintf(text, "%c", letter); //Print letter
-            lcd_print(text);
-            lcd_gotoxy(i, 2);
-         }else{
-            break; //Break out of while (3 initials submitted)
-         }
-      }
-      
-      //Button 3 pressed (Delete)
-      if(input(B3)){
-         while( input(B3) );    //Wait for button to be released
-         if(i==1){    //1st letter - nothing to delete
-            continue; //Go back to start of while
-         }else{
-            letter = 65; //Go back to 'A'
-            lcd_gotoxy(i-1, 2);
-            strcpy(text, "A_");
-            lcd_print(text);
+   while(TRUE){ //Loop for reading RFID
+      //Make 3 measurements to make a check-sum
+      for(int i = 0; i<3; i++){
+         //Load RFID card
+         RFID = loadRFID(); //Mangler funktion
+          
+         //If there is no measured value
+         if((RFID[0] == 0) && (RFID[1] == 0) && (RFID[2] == 0) && (RFID[3] == 0) && (RFID[4] == 0)){
             i--;
-            *initials--;
-            lcd_gotoxy(i, 2);
+            continue;
          }
-      }
-      delay_ms(100);  //Works as debounce
-      
-   }    //End of while       
+          
+         //Depending on the value of i
+         switch(i){
+            case 0: checkSum1 = RFID[0] + RFID[1] + RFID[2] + RFID[3] + RFID[4]; break;
+            case 1: checkSum2 = RFID[0] + RFID[1] + RFID[2] + RFID[3] + RFID[4]; break;
+            case 2: 
+            checkSum3 = RFID[0] + RFID[1] + RFID[2] + RFID[3] + RFID[4]; 
+            if(checkSum1 == checkSum2 && checkSum2 == checkSum3){
+               sumsGood = 1;  
+            }
+            break;
+         }  
+      }  
+      //If the 3 RFIDs matched
+      if(sumsGood){
+         break;
+      }            
+   }
+   return RFID[5];
 }
 
 
@@ -145,45 +115,55 @@ void main()
    unsigned long score;       //Array of persons score from time_ms
    unsigned int8 coords[17];  //Array of current coords
    unsigned int8 RFID[5];     //Array of RFID bytes
+   unsigned int8 startTime[];
    int8 nPerson;              //The person running the race's number (starting from 0)
    int8 choice;               //Chooses what to do at program start 
+   
    char buffer[17];           //LCD buffer
    
-
+   //Main while-loop
    while(TRUE){  
        
-       /*
-       char buffer[17];
-       strcpy(buffer, "Please scan RFID");
+       //Choose to show highscore or run a race
+       //Print on LCD
+       lcd_gotoxy(1, 1);
+       strcpy(buffer, "B1 - Show Scores");
+       lcd_print(buffer);
+       lcd_gotoxy(1, 2);
+       strcpy(buffer, "B2 - Start Race");
        lcd_print(buffer);
        
-       
-       
-       while(TRUE){ //Loop for reading RFID
-       //Load RFID card
-       RFID = loadRFID(); //Mangler funktion
+       while((!input(B1)) && (!input(B2))){
+          if(input(B1)){
+            //showHighscore(); //Not written yet
+            continue;
+          }else if(input(B2)){
+            break;
+          }
        }
-       */
-       /*
+       
+       //RFID sleep mode while waiting for user to press Button 1
+       sleepWaitTag();
+       //Get the RFID
+       RFID = getRFID();      
        //Check if user is new user
        nPerson = isNewUser(RFID);
-       
        if( nPerson == -1 ){
-         getInitials(&initials); //Function returns initials by changing the array
+         getInitials(&initials);  //Function returns initials by changing the array
          nPerson = writePerson(initials, RFID); //Get the person's number (0, 1, 2...)
        }
-       */
        
        
-       //Start the race by loading the coordinates and restarting the timer
-       //startRace();
        
+       //Start the race by loading the coordinates and restarting the timer. Should check if the personis at the right starting point.
+       //startRace(); - Not written, might not be needed
        
+       //While-loop for the race
        //while(TRUE){       
        
        //Go to Sleep Mode again and wait for RFID
        //"Check in at next CP!" or something on LCD
-       //sleepMode();
+       //sleepWaitTag();
        
        //RFID is scanned
        //scanRFID();
@@ -202,7 +182,7 @@ void main()
        
        
        }
-       */
+       
        
        
    }
