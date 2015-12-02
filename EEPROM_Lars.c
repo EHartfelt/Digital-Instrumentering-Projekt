@@ -33,32 +33,34 @@ BYTE read_eeprom (int16 address) {
 
 
 //Write a new participant into the EEPROM
-void writePerson(char[3] initials,char[5] RFIDnr){
-int8 i;
-int8 persons = read_eeprom(0x0001);
-int16 address;
-address=172+persons*12;
+int8 writePerson(char initials[],char RFIDnr[]){
+   int8 i;
+   int8 persons = read_eeprom(0x0001); //amount of people in EEPROM
+   int16 address;
+   address=172+persons*12; //address of new person in memory
+   
+   for(i=0; i<12;i++){ 
+      if(i<3) write_eeprom(address + i, initials[i]); //write new initials
+      if(i>=3 && i<8) write_eeprom(address + i, RFIDnr[i-3]); //write new RFIDnr
+      if(i>=8) write_eeprom(address + i, 0xFF); //give them worst possible time for race
+      }
 
-for(i=0; i<8;i++){ 
-if(i<3) write_eeprom(address + i, initials[i]);
-if(i>=3) write_eeprom(address + i, RFIDnr[i-3]);
-}
-for(i=8;i<12;i++){
-write_eeprom(address + i, 0xFF);
-}
+   write_eeprom(0x0001,persons+1); //1 more person in the memory
+   return persons +1; //return position in memory of participant
 }
 
 //Write a new checkpoint into the EEPROM
-void writeCP(char[8] Ycoord,char[9] Xcoord){
+void writeCP(char Ycoord[],char Xcoord[]){
 int8 i;
-int8 CP = read_eeprom(0x0000);
+int8 CP = read_eeprom(0x0000); //amount of checkpoints in EEPROM
 int16 address;
-address=2+CP*17;
+address=2+CP*17; //address of new checkpoint
 
-for(i=0; i<17;i++){
-if(i<8) write_eeprom(address + i, Ycoord[i]);
-if(i>=8) write_eeprom(address + i, Xcoord[i-8]);
+for(i=0; i<17;i++){ //size of CP is 17 bytes
+if(i<8) write_eeprom(address + i, Ycoord[i]); //Save Y-coords
+if(i>=8) write_eeprom(address + i, Xcoord[i-8]); //Save X-coords
 }
+write_eeprom(0x0000,CP+1); //1 more checkpoint in memory
 }
 
 
