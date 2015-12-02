@@ -106,10 +106,7 @@ void RFID_get_data(int8 RFID[5]){
       
    }
      
-     for(i = 0; i<128;i++){
-        printf("%i",manchester[i]);
-     }
-     printf("\n");
+     
    
    // Decode the manchester encoded bits
    BOOLEAN data[64] = {FALSE};
@@ -153,9 +150,9 @@ void RFID_get_data(int8 RFID[5]){
    
    for(i=0;i<64;i++){
       temp[i]=data[(i+pos)%64];
-     // printf("%i",temp[i]);
+    
    }
-   //printf("\n");
+   
    
    
    // Assign the data bytes from the array
