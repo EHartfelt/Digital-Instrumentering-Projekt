@@ -94,7 +94,7 @@ int8 isNewUser(int8 RFID_Tag[5]){
 
 //This function checks if the new score is a highscore and writes it into the EEPROM
 //if that is the case. It returns 0 if the new score is a HS and returns the old highscore if not.
-unsigned long writeScore(unsigned long score, RFID_Tag[5], int8 position){
+unsigned long writeScore(unsigned int32 score, RFID_Tag[5], int8 position){
    
    //Split the score into 4 bytes: B3 B2 B1 B0
    unsigned char bytes[4];
@@ -104,23 +104,26 @@ unsigned long writeScore(unsigned long score, RFID_Tag[5], int8 position){
    bytes[3] = (score>>24) & 0xFF; //Most significant byte
    
    unsigned int8 start_add = 180; //First address with Highscore
-   unsigned int16 address;        //Current address
+   unsigned int8 address;         //Current address
    unsigned int8 data;            //Data byte from EEPROM
    
-   unsigned long oldScore = 0;         //Variable for the old highscore
+   unsigned int32 oldScore = 10100000;         //Variable for the old highscore
+   
    
    address = start_add + position*12; //Go to the first Highscore byte for the corresponding user
       
    //Get the old score from EEPROM in a long
    for(int i = 0; i<4; i++){
       data = read_eeprom_ext(address+i);
-      oldScore = oldScore + (data << (24-i*8));
+      oldScore = oldScore << (8);
+      oldScore = oldScore + data;
+     
    }
-   
+   printf(" oldscore is: %lu\n" oldScore);
    //Which score is best?
    if(score >= oldScore){ //Smaller number => Faster race
       return oldScore; 
-   }else{   
+   }else{
       //Insert the new HS in EEPROM and return
       for(unsigned int i = 4; i>0; i--){
          data = bytes[i-1];
