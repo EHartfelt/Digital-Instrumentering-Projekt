@@ -107,7 +107,7 @@ unsigned long writeScore(unsigned int32 score, RFID_Tag[5], int8 position){
    unsigned int8 address;         //Current address
    unsigned int8 data;            //Data byte from EEPROM
    
-   unsigned int32 oldScore = 10100000;         //Variable for the old highscore
+   unsigned int32 oldScore = 0;         //Variable for the old highscore
    
    
    address = start_add + position*12; //Go to the first Highscore byte for the corresponding user
